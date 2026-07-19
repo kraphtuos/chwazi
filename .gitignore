@@ -1,0 +1,5 @@
+# Rust build artifacts
+/target
+
+# Trunk build output
+/dist
