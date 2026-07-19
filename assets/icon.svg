@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chwazi">
+    <defs>
+        <!-- Subtle spherical shading, highlight toward the top-left of each dot. -->
+        <radialGradient id="yellow" cx="38%" cy="34%" r="78%">
+            <stop offset="0%" stop-color="#ffdf5e" />
+            <stop offset="55%" stop-color="#ffc70e" />
+            <stop offset="100%" stop-color="#efb400" />
+        </radialGradient>
+        <radialGradient id="teal" cx="38%" cy="34%" r="78%">
+            <stop offset="0%" stop-color="#89e0e7" />
+            <stop offset="55%" stop-color="#4cc2cb" />
+            <stop offset="100%" stop-color="#3bafb8" />
+        </radialGradient>
+    </defs>
+
+    <!-- Full-bleed black keeps the icon clean when a launcher masks it. -->
+    <rect width="512" height="512" fill="#000000" />
+
+    <!-- 2x2 grid: one yellow dot, three teal dots. -->
+    <circle cx="172" cy="172" r="62" fill="url(#yellow)" />
+    <circle cx="340" cy="172" r="62" fill="url(#teal)" />
+    <circle cx="172" cy="340" r="62" fill="url(#teal)" />
+    <circle cx="340" cy="340" r="62" fill="url(#teal)" />
+</svg>

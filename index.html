@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description"
+        content="Chwazi-style random picker: put fingers on the screen and let it choose one, an order, or teams." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Chwazi" />
+    <title>Chwazi &mdash; Finger Chooser</title>
+
+    <link data-trunk rel="rust" data-wasm-opt="z" />
+    <link data-trunk rel="copy-file" href="assets/manifest.json" />
+    <link data-trunk rel="copy-file" href="assets/icon.svg" />
+    <link data-trunk rel="copy-file" href="assets/sw.js" />
+
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            min-height: 100%;
+            min-height: 100svh;
+            min-height: 100dvh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: radial-gradient(120% 120% at 50% 0%, #17172a 0%, #0b0b12 60%, #05050a 100%);
+            color: #fff;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+
+        body {
+            position: relative;
+        }
+
+        /* These are only the pre-script fallback: the real size is written in
+           px by `fitCanvas()` below, because on iOS standalone the viewport
+           units and safe-area insets resolve against a viewport that hasn't
+           settled yet on a reload — and nothing fires when it does. The canvas
+           carries the backdrop gradient itself, so any strip it does cover is
+           actually filled (a transparent canvas over an uncovered strip only
+           shows black). Overshoot bleeds off-screen and clips harmlessly. */
+        #c {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: calc(100dvh + env(safe-area-inset-bottom, 0px));
+            background: radial-gradient(140% 130% at 50% 120px, #17172a 0%, #0b0b12 60%, #05050a 100%);
+            display: block;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* Floating control bar. pointer-events is limited to the controls so
+           touches on empty space still reach the canvas underneath. */
+        #ui {
+            position: fixed;
+            top: calc(env(safe-area-inset-top, 0px) + 14px);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+            transition: opacity .45s ease, transform .45s ease;
+        }
+
+        #ui.hidden {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-14px);
+        }
+
+        /* The control bar holds the only real DOM text in the app, and it is
+           only on screen while idle — which is exactly when the double-tap
+           glass peek shows up. `touch-action` does not inherit, so the buttons
+           never got the body's `none` and still allowed double-tap zoom; and
+           WebKit does not reliably inherit user-select/touch-callout into form
+           controls, so their labels stayed selectable (double-tap selects a
+           word and pops the callout). `manipulation` kills the double-tap
+           gesture while leaving ordinary taps working. */
+        #ui,
+        #ui *,
+        #dots,
+        #dots * {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* While hidden (during gather) the invisible controls must not swallow
+           touches meant for the canvas underneath. */
+        #ui.hidden .seg,
+        #ui.hidden .grp {
+            pointer-events: none;
+        }
+
+        .seg {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .08);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, .1);
+            pointer-events: auto;
+        }
+
+        .seg button {
+            appearance: none;
+            border: 0;
+            cursor: pointer;
+            font: 600 14px/1 system-ui, sans-serif;
+            color: rgba(255, 255, 255, .72);
+            background: transparent;
+            padding: 10px 16px;
+            border-radius: 999px;
+            transition: background .2s ease, color .2s ease;
+            white-space: nowrap;
+        }
+
+        .seg button.active {
+            background: #fff;
+            color: #111;
+        }
+
+        .grp {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 8px 6px 16px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .08);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, .1);
+            font: 600 14px/1 system-ui, sans-serif;
+            color: rgba(255, 255, 255, .72);
+            pointer-events: auto;
+            transition: opacity .3s ease;
+        }
+
+        .grp.hidden {
+            display: none;
+        }
+
+        .grp button {
+            appearance: none;
+            border: 0;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font: 700 18px/1 system-ui, sans-serif;
+            color: #111;
+            background: #fff;
+        }
+
+        .grp button:active {
+            transform: scale(.92);
+        }
+
+        #gcount {
+            min-width: 14px;
+            text-align: center;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .grplabel {
+            opacity: .6;
+        }
+
+        /* The "extra dots" stepper: the iOS >5-touch workaround. Anchored at the
+           bottom centre so it's always in reach, it stays available right
+           through the gather countdown (unlike the mode bar) and only slides
+           away while a pick is on screen. Reuses the .grp pill look. */
+        #dots {
+            position: fixed;
+            left: 50%;
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .08);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, .1);
+            font: 600 14px/1 system-ui, sans-serif;
+            color: rgba(255, 255, 255, .72);
+            pointer-events: auto;
+            transition: opacity .35s ease, transform .35s ease;
+        }
+
+        #dots.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(-50%) translateY(16px);
+        }
+
+        #dots button {
+            appearance: none;
+            border: 0;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font: 700 18px/1 system-ui, sans-serif;
+            color: #111;
+            background: #fff;
+        }
+
+        #dots button:active {
+            transform: scale(.92);
+        }
+
+        #dcount {
+            min-width: 14px;
+            text-align: center;
+            color: #fff;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="c"></canvas>
+
+    <div id="ui">
+        <div class="seg">
+            <button data-mode="one" class="active">Pick&nbsp;One</button>
+            <button data-mode="order">Order</button>
+            <button data-mode="groups">Teams</button>
+        </div>
+        <div id="grp" class="grp hidden">
+            <button id="gminus" aria-label="fewer teams">&minus;</button>
+            <span id="gcount">2</span>
+            <button id="gplus" aria-label="more teams">+</button>
+            <span class="grplabel">teams</span>
+        </div>
+    </div>
+
+    <div id="dots">
+        <button id="dminus" aria-label="remove a dot">&minus;</button>
+        <span id="dcount">0</span>
+        <button id="dplus" aria-label="add a dot">+</button>
+    </div>
+
+    <script>
+        // Size the canvas from JS rather than CSS viewport units.
+        //
+        // The canvas is sized and positioned to the VISUAL VIEWPORT — the actual
+        // visible area — rather than CSS viewport units or screen.height. On this
+        // device screen.height is 874 but only 812 is visible in standalone, and
+        // 100dvh / safe-area insets resolve against a viewport that is still
+        // mid-settle on a reload (leaving an uncovered strip, with no event when
+        // it finally settles). Tracking the visual viewport sidesteps all of
+        // that; a per-load running max plus a persisted best guard the reload
+        // under-report, and we re-fit on every signal plus a short settle schedule.
+        (function () {
+            const c = document.getElementById('c');
+            const isStandalone = () =>
+                window.navigator.standalone === true ||
+                (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+            // In-memory running max: within a single page load the canvas can
+            // only ever grow, no matter what a mid-settle measurement reports.
+            // (localStorage carries this across reloads; this variable guards
+            // against a shrink even if storage is unavailable.)
+            let runW = 0, runH = 0;
+
+            // Orientation key: portrait vs landscape are cached separately.
+            // v2 key: v1 persisted screen.height (874), which overshot the real
+            // visible area (the visual viewport, 812) and cut off the bottom.
+            const orient = () => (window.innerHeight >= window.innerWidth ? 'p' : 'l');
+            const KEY = () => 'cnv-fit2-' + orient();
+
+            // Remember the largest coverage ever achieved for this orientation.
+            // This is the crux of the refresh bug: a reload measures a viewport
+            // that is still settling and reports dimensions that are too small,
+            // and WebKit fires no event when it finally settles. By persisting
+            // the known-good size and seeding from it on load, a refresh starts
+            // already full-screen instead of climbing up from too-small — and
+            // the live measurements below can still grow it further, never shrink.
+            function loadBest() {
+                try {
+                    const v = JSON.parse(localStorage.getItem(KEY()));
+                    if (v && v.w > 0 && v.h > 0) return v;
+                } catch (e) { }
+                return null;
+            }
+            function saveBest(w, h) {
+                try { localStorage.setItem(KEY(), JSON.stringify({ w, h })); } catch (e) { }
+            }
+
+            function fitCanvas() {
+                let w, h, top = 0, left = 0;
+                const vv = window.visualViewport;
+                if (isStandalone()) {
+                    // Installed PWA: the *visual viewport* is the authoritative
+                    // visible area — NOT screen.height, which on this device is
+                    // 874 while only 812 is actually visible (the extra 62px ran
+                    // the canvas off the bottom). Position at its offset and size
+                    // to it, so the canvas exactly overlays what the user sees.
+                    w = vv ? vv.width : window.innerWidth;
+                    h = vv ? vv.height : window.innerHeight;
+                    top = vv ? vv.offsetTop : 0;
+                    left = vv ? vv.offsetLeft : 0;
+                    // Defend against iOS reporting a too-small viewport mid-settle
+                    // on reload: never shrink within a load, and remember the best
+                    // across reloads. Capped by the visible area, so it can't
+                    // overshoot the way the old screen floor did.
+                    const best = loadBest();
+                    if (best) { w = Math.max(w, best.w); h = Math.max(h, best.h); }
+                    runW = w = Math.max(w, runW);
+                    runH = h = Math.max(h, runH);
+                    saveBest(w, h);
+                } else {
+                    // Browser tab (e.g. `trunk serve` in Safari): match the
+                    // visible viewport exactly, chrome and all.
+                    w = vv ? vv.width : window.innerWidth;
+                    h = vv ? vv.height : window.innerHeight;
+                    top = vv ? vv.offsetTop : 0;
+                    left = vv ? vv.offsetLeft : 0;
+                }
+
+                c.style.width = Math.ceil(w) + 'px';
+                c.style.height = Math.ceil(h) + 'px';
+                c.style.top = Math.round(top) + 'px';
+                c.style.left = Math.round(left) + 'px';
+                // A reload can restore a stray scroll offset, which shifts the
+                // fixed canvas off the top edge on iOS.
+                if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+            }
+
+            fitCanvas();
+            ['resize', 'orientationchange', 'pageshow', 'focus'].forEach((ev) =>
+                window.addEventListener(ev, fitCanvas));
+            document.addEventListener('visibilitychange', fitCanvas);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', fitCanvas);
+                window.visualViewport.addEventListener('scroll', fitCanvas);
+            }
+            // Catch the silent post-reload settle, which lands somewhere in the
+            // first second with no event of its own.
+            [0, 50, 150, 300, 600, 1000].forEach((t) => setTimeout(fitCanvas, t));
+            window.addEventListener('load', fitCanvas);
+        })();
+    </script>
+    <script>
+        // Suppress iOS's double-tap gestures over the app (zoom, and the
+        // text-selection / "look up" loupe that pops up as a glassy peek on
+        // iOS 26). `touch-action: none` handles most of it; these cover the rest.
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+        document.addEventListener('gesturechange', (e) => e.preventDefault());
+        // A synthesized double-click is what triggers the glass peek — kill it.
+        document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+
+        // iOS commits to the double-tap gesture on the SECOND touchstart, so
+        // preventing it only on touchend is too late — that is why the peek
+        // survived. Guard tightly so ordinary play is untouched: a second
+        // single-finger tap landing in nearly the same spot within 350ms. That
+        // is the double-tap gesture and not something a player does on purpose —
+        // two real fingers land apart, not within 40px of each other.
+        //
+        // Safe for the app's own input: WebKit fires pointerdown before
+        // touchstart, so the finger is already registered by the time this runs;
+        // preventing the touchstart default only suppresses the system gesture.
+        const TAP_MS = 350, TAP_PX = 40;
+        let lastTap = 0, lastX = 0, lastY = 0;
+        const nearLast = (t) =>
+            Math.abs(t.clientX - lastX) < TAP_PX && Math.abs(t.clientY - lastY) < TAP_PX;
+
+        document.addEventListener('touchstart', (e) => {
+            if (e.target.closest && e.target.closest('#ui, #dots')) return;
+            if (e.touches.length !== 1) return;
+            const t = e.changedTouches[0];
+            if (t && Date.now() - lastTap <= TAP_MS && nearLast(t)) e.preventDefault();
+        }, { capture: true, passive: false });
+
+        document.addEventListener('touchend', (e) => {
+            if (e.target.closest && e.target.closest('#ui, #dots')) return;
+            const t = e.changedTouches[0];
+            const now = Date.now();
+            if (t && now - lastTap <= TAP_MS && nearLast(t)) e.preventDefault();
+            lastTap = now;
+            if (t) { lastX = t.clientX; lastY = t.clientY; }
+        }, { capture: true, passive: false });
+    </script>
+    <script>
+        // Optional: registers a tiny service worker for offline use *if* sw.js
+        // is deployed alongside this file. The page works standalone without it.
+        //
+        // Skip it during local development (`trunk serve`), where a stale SW
+        // would keep serving old WASM/HTML across rebuilds. Detected by
+        // hostname, so it stays off whether or not `--release` is passed. Any
+        // SW/caches left over from a previous dev session are torn down too.
+        if ('serviceWorker' in navigator) {
+            // Treat localhost AND private LAN addresses / *.local as dev, so a
+            // stale service worker never caches old builds while testing on a
+            // phone over the LAN (where the host is e.g. 192.168.x.x, not
+            // localhost).
+            const host = location.hostname;
+            const isDev = ['localhost', '127.0.0.1', '[::1]', ''].includes(host)
+                || /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
+                || host.endsWith('.local');
+            window.addEventListener('load', () => {
+                if (isDev) {
+                    navigator.serviceWorker.getRegistrations()
+                        .then((rs) => rs.forEach((r) => r.unregister())).catch(() => { });
+                    if (window.caches) {
+                        caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => { });
+                    }
+                } else {
+                    navigator.serviceWorker.register('./sw.js').catch(() => { });
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

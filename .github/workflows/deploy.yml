@@ -1,0 +1,75 @@
+name: Deploy to GitHub Pages
+
+on:
+  # Publish on every push to the default branch.
+  push:
+    branches: [main]
+  # ...and allow a manual run from the Actions tab.
+  workflow_dispatch:
+
+# No workflow-wide grants: each job requests exactly the permissions it needs.
+permissions: {}
+
+# Only one Pages deploy at a time; let an in-progress run finish (don't cancel
+# a deploy midway).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # checkout
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (wasm target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      # Cache the cargo registry + build so only the first run pays full build.
+      - uses: Swatinem/rust-cache@v2
+
+      # Trunk drives the build; it auto-downloads the matching wasm-bindgen and
+      # wasm-opt (binaryen) itself, so nothing else needs installing.
+      # Pinned so a surprise Trunk release can't break deploys; matches the
+      # version used for local development.
+      - name: Install Trunk
+        uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall -y trunk@0.21.14
+
+      # Requires Pages to be enabled once by hand: Settings → Pages → Source =
+      # "GitHub Actions". The API that turns it on isn't reachable from the
+      # workflow's GITHUB_TOKEN (`enablement: true` fails with "Resource not
+      # accessible by integration"), so there's no way to automate it here.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      # A RELATIVE public URL ("./") makes the build portable: the same dist
+      # works at a domain root, under any subpath, and on a project page
+      # (/<repo>/) with no rebuild. An absolute base would hardcode one of
+      # those and 404 everywhere else. Matches the already-relative
+      # manifest.json / icon.svg / ./sw.js references in index.html.
+      - name: Build
+        run: trunk build --release --public-url ./
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write # the deploy itself
+      id-token: write # OIDC token deploy-pages authenticates with
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
