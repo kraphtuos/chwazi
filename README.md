@@ -59,8 +59,20 @@ for PWA installability.
 
 ```
 Cargo.toml        crate config (cdylib) + web-sys features
-index.html        Trunk template: canvas, control bar, styles, asset links
-src/lib.rs        the whole app (input, state machine, animation, rendering)
+index.html        Trunk template: canvas + control bar markup, asset links
+styles.css        all UI styling (inlined into index.html at build)
+src/
+  lib.rs          entry point (start): grabs DOM handles, wires events, starts rAF
+  config.rs       tunable constants + colour palette
+  state.rs        the App / Finger state types shared across modules
+  input.rs        pointer + control-bar events and the state transitions they drive
+  sim.rs          geometry helpers, the per-frame update, and the random pick
+  render.rs       all canvas drawing (flood, rings, overlays)
+  util.rs         DOM/rAF glue, easing, RNG, colour helpers
+js/               page bootstrap scripts (inlined into index.html at build)
+  viewport-fit.js   sizes the canvas to the visual viewport
+  no-double-tap.js  suppresses iOS double-tap zoom / loupe
+  register-sw.js    registers sw.js in production, tears it down in dev
 assets/
   manifest.json   PWA manifest
   icon.svg        app icon
