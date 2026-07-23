@@ -28,9 +28,18 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+          # dtolnay's default profile is minimal; pull in the lint/format tools.
+          components: clippy, rustfmt
 
       # Cache the cargo registry + build so only the first run pays full build.
       - uses: Swatinem/rust-cache@v2
+
+      # Fail fast on formatting or lint problems before spending time on the
+      # wasm build + deploy. `-D warnings` makes any clippy warning an error.
+      - name: Format check
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings
 
       # Trunk drives the build; it auto-downloads the matching wasm-bindgen and
       # wasm-opt (binaryen) itself, so nothing else needs installing.
@@ -38,7 +47,13 @@ jobs:
       # version used for local development.
       - name: Install Trunk
         uses: cargo-bins/cargo-binstall@main
-      - run: cargo binstall -y trunk@0.21.14
+      # --force reinstalls even when rust-cache restores cargo's install
+      # metadata (.crates.toml) claiming trunk is already present: without it
+      # binstall skips the install ("already installed") while the actual
+      # ~/.cargo/bin/trunk binary is missing, so the Build step below fails
+      # with "trunk: command not found". Cold caches happen to work, which is
+      # why this only bites on pushes after the first successful deploy.
+      - run: cargo binstall -y --force trunk@0.21.14
 
       # Requires Pages to be enabled once by hand: Settings → Pages → Source =
       # "GitHub Actions". The API that turns it on isn't reachable from the
