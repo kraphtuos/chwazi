@@ -244,6 +244,20 @@ impl App {
 // Event wiring
 // ---------------------------------------------------------------------------
 
+/// `preventDefault` an event only when it is actually over the canvas. The move
+/// and release listeners live on the window (see `install_pointer_handlers`), so
+/// they also see events over the control bars — and cancelling the default there
+/// would risk the buttons' own tap handling. There is only one canvas in the
+/// page, so a successful cast is an exact test.
+fn prevent_on_canvas(e: &PointerEvent) {
+    if e.target()
+        .and_then(|t| t.dyn_into::<HtmlCanvasElement>().ok())
+        .is_some()
+    {
+        e.prevent_default();
+    }
+}
+
 pub(crate) fn install_pointer_handlers(canvas: &HtmlCanvasElement) {
     let point = |canvas: &HtmlCanvasElement, e: &PointerEvent| -> (i32, f64, f64) {
         let rect = canvas.get_bounding_client_rect();
@@ -279,9 +293,22 @@ pub(crate) fn install_pointer_handlers(canvas: &HtmlCanvasElement) {
         with_app(|app| app.on_down(id, x, y));
     });
 
+    // Move and release listen on the WINDOW, not the canvas. The control bars
+    // sit above the canvas with `pointer-events: auto` and are *siblings* of it,
+    // so a pointer drifting onto one retargets there and its events bubble
+    // straight past the canvas to the window — a canvas listener never sees
+    // them. A finger released over the dots stepper was therefore never lifted
+    // and stayed on screen as a stuck dot (and stopped tracking the moment it
+    // touched the pill). Mouse/pen escape this through the explicit capture
+    // above; touch cannot, since capture has to be released for multi-touch.
+    //
+    // `pointerdown` deliberately stays on the canvas: a touch must only spawn a
+    // finger when it *starts* on the canvas, never when it starts on a button.
+    // A release whose pointer never spawned one is a harmless no-op — `on_up`
+    // ignores ids it doesn't know.
     let c = canvas.clone();
-    add_listener(canvas, "pointermove", move |e: PointerEvent| {
-        e.prevent_default();
+    add_listener(&window(), "pointermove", move |e: PointerEvent| {
+        prevent_on_canvas(&e);
         let (id, x, y) = point(&c, &e);
         with_app(|app| app.on_move(id, x, y));
     });
@@ -290,8 +317,8 @@ pub(crate) fn install_pointer_handlers(canvas: &HtmlCanvasElement) {
     // touch pointers fire it spuriously (notably on iOS Safari), which would
     // remove fingers the instant they touch down, so it must NOT be here.
     for ev in ["pointerup", "pointercancel"] {
-        add_listener(canvas, ev, move |e: PointerEvent| {
-            e.prevent_default();
+        add_listener(&window(), ev, move |e: PointerEvent| {
+            prevent_on_canvas(&e);
             let id = e.pointer_id();
             with_app(|app| app.on_up(id));
         });

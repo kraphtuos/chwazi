@@ -375,13 +375,16 @@ impl App {
             self.phase,
             Phase::Animate { .. } | Phase::Result | Phase::Hold { .. }
         );
-        // The mode bar hides as soon as a real finger is down (staged virtual
-        // dots alone keep it up, so you can still add dots / switch mode). The
-        // dots stepper stays available right through the gather countdown, so an
-        // extra dot can be added even after fingers are down — the whole point
-        // of the workaround — and only hides while a pick is showing.
+        // Both bars hide as soon as a real finger is down; staged virtual dots
+        // alone keep them up, so dots are added and the mode switched before
+        // anyone touches, not during the gather. The stepper used to stay live
+        // through the countdown so a dot could be added mid-round, but a control
+        // sitting under a moving finger is a hazard — a finger dragged onto the
+        // pill lost its release and stuck — and on iOS a `+` tap with five
+        // fingers already down is a sixth simultaneous touch the OS will not
+        // deliver anyway, so little is given up.
         let real_down = self.fingers.values().any(|f| f.alive && !f.virt);
         set_hidden(&self.ui, busy || real_down);
-        set_hidden(&self.dots_el, busy);
+        set_hidden(&self.dots_el, busy || real_down);
     }
 }
