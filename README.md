@@ -60,7 +60,7 @@ for PWA installability.
 ```
 Cargo.toml        crate config (cdylib) + web-sys features
 index.html        Trunk template: canvas + control bar markup, asset links
-styles.css        all UI styling (inlined into index.html at build)
+styles.css        all UI styling — incl. the full-screen canvas (inlined at build)
 src/
   lib.rs          entry point (start): grabs DOM handles, wires events, starts rAF
   config.rs       tunable constants + colour palette
@@ -70,7 +70,7 @@ src/
   render.rs       all canvas drawing (flood, rings, overlays)
   util.rs         DOM/rAF glue, easing, RNG, colour helpers
 js/               page bootstrap scripts (inlined into index.html at build)
-  viewport-fit.js   sizes the canvas to the visual viewport
+  viewport-fit.js   keeps the canvas sized to the visible viewport (iOS PWA fix)
   no-double-tap.js  suppresses iOS double-tap zoom / loupe
   register-sw.js    registers sw.js in production, tears it down in dev
 assets/
