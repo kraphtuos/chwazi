@@ -69,6 +69,32 @@ impl App {
         self.update_dcount();
     }
 
+    /// The page is going into the background. Drop every real touch and return
+    /// to a clean screen.
+    ///
+    /// This is the one transition where a pressed finger never gets its
+    /// `pointerup`: iOS claims the home / app-switcher swipe part-way through
+    /// the gesture and freezes the PWA, so the touch that began the swipe is
+    /// still `alive` on return and sits there as a dot nothing can clear (a
+    /// lone finger can't reach a pick, and only a real release on that exact
+    /// spot would lift it). Releasing implicit pointer capture for multi-touch
+    /// (see `install_pointer_handlers`) makes the missing up-event likelier
+    /// still, since the pointer isn't bound to the canvas.
+    ///
+    /// By the time we're hidden the fingers are physically off the glass, so
+    /// clearing them is the truth, not a guess. Anything mid-shrink goes too —
+    /// on return `now` has jumped far past its `depart`, so it would be culled
+    /// on the first frame anyway. Staged virtual dots are kept and reset in
+    /// place by `reset_idle`: they aren't touches, and they already persist
+    /// across rounds.
+    pub(crate) fn release_all_touches(&mut self) {
+        self.fingers.retain(|_, f| f.virt);
+        // Drop the cancel overlay as well — with no frames running it would
+        // otherwise still be mid-whoosh and flash on the way back in.
+        self.cancel = None;
+        self.reset_idle();
+    }
+
     fn on_move(&mut self, id: i32, x: f64, y: f64) {
         // Positions lock in once a pick is running or shown — the winner (and
         // everyone else) stops tracking the finger.
@@ -346,5 +372,24 @@ pub(crate) fn install_window_handlers() {
     });
     add_listener(&window(), "contextmenu", move |e: Event| {
         e.prevent_default();
+    });
+
+    // Backgrounding the app strands any pressed finger (see
+    // `release_all_touches`). Both events are wired, not one: `visibilitychange`
+    // is the precise signal — it means "no longer foreground" and nothing else —
+    // while `pagehide` is the backstop for the iOS cases where it has been known
+    // not to fire. Whichever lands first does the work; the second is then a
+    // no-op on already-cleared state.
+    //
+    // Deliberately NOT `blur`/`focusout`: those also fire for a Control Centre
+    // pull-down or a notification banner, where the fingers really are still
+    // down, so clearing on them would drop live touches mid-round.
+    add_listener(&document(), "visibilitychange", move |_e: Event| {
+        if document().hidden() {
+            with_app(|app| app.release_all_touches());
+        }
+    });
+    add_listener(&window(), "pagehide", move |_e: Event| {
+        with_app(|app| app.release_all_touches());
     });
 }
