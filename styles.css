@@ -32,19 +32,18 @@ body {
     position: relative;
 }
 
-/* These are only the pre-script fallback: the real size is written in
-   px by `fitCanvas()` in js/viewport-fit.js, because on iOS standalone the
-   viewport units and safe-area insets resolve against a viewport that hasn't
-   settled yet on a reload — and nothing fires when it does. The canvas
-   carries the backdrop gradient itself, so any strip it does cover is
-   actually filled (a transparent canvas over an uncovered strip only
-   shows black). Overshoot bleeds off-screen and clips harmlessly. */
+/* Full-screen canvas. Its real size is written in px by js/viewport-fit.js
+   every animation frame — see there for why JS measurement beats CSS units
+   here: iOS standalone PWAs don't lay a fixed canvas out to the full viewport
+   on a cold launch, and report the settled viewport size late with no event.
+   The values below are only the pre-script fallback for the first frame. The
+   canvas paints its own backdrop gradient, so it always fills to its edges. */
 #c {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: calc(100dvh + env(safe-area-inset-bottom, 0px));
+    height: 100%;
     background: radial-gradient(140% 130% at 50% 120px, #17172a 0%, #0b0b12 60%, #05050a 100%);
     display: block;
     touch-action: none;
