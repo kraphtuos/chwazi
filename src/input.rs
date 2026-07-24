@@ -139,7 +139,14 @@ impl App {
             let decided = self.mode == Mode::One
                 && self.flood_col.is_some()
                 && matches!(self.phase, Phase::Animate { .. } | Phase::Result);
-            if decided {
+            // Order / Teams caught mid-reveal: same deal. The team colour is a
+            // lerp driven by `reveal` (see `draw_finger`), and `reveal` only
+            // advances while in Animate — so cutting straight to Hold here would
+            // freeze the blend part-way and the rings would never reach their
+            // final team colour. Let the reveal play out; `frame` picks the hold
+            // up from Result.
+            let revealing = showing && matches!(self.phase, Phase::Animate { .. });
+            if decided || revealing {
                 // nothing to do — the animation continues on its own.
             } else if showing {
                 // Everyone has lifted with the order/teams result up: hold it on

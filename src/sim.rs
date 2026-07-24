@@ -228,9 +228,14 @@ impl App {
                 }
             }
             Phase::Result => {
-                // Everyone already lifted (the flood finished on its own): begin
-                // the post-win hold, which then plays the exit.
-                if self.mode == Mode::One && self.flood_col.is_some() && self.real_alive() == 0 {
+                // Everyone already lifted and the reveal has played out: begin
+                // the post-result hold, which then plays the exit. Pick One
+                // needs a decided flood to hold on to; Order / Teams always
+                // carry their result on the rings themselves, so simply
+                // reaching Result is enough. This is also where a lift *during*
+                // an Order / Teams reveal lands, once the animation it was left
+                // to finish completes (see `on_up`).
+                if self.real_alive() == 0 && (self.mode != Mode::One || self.flood_col.is_some()) {
                     self.phase = Phase::Hold { start: now };
                 }
             }
