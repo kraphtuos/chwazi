@@ -75,6 +75,7 @@ pub fn start() -> Result<(), JsValue> {
         mode: Mode::One,
         groups: 2,
         next_virt: -1,
+        drags: HashMap::new(),
         now: 0.0,
         last_t: 0.0,
         width: 0.0,

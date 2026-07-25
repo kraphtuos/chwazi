@@ -65,6 +65,56 @@ impl App {
         best
     }
 
+    /// The staged virtual dot under (`x`, `y`), if any — the target a touch
+    /// grabs to drag. The whole ring is grabbable, not just the inner disc, so
+    /// the hit area matches what is actually drawn. When two dots overlap the
+    /// most recently added (most-negative id) wins, matching `remove_virtual`.
+    pub(crate) fn dot_at(&self, x: f64, y: f64) -> Option<i32> {
+        let r = self.base_r();
+        self.fingers
+            .iter()
+            .filter(|(_, f)| f.virt && f.alive && (f.x - x).hypot(f.y - y) <= r)
+            .map(|(id, _)| *id)
+            .min()
+    }
+
+    /// Keep a dragged dot fully on screen and clear of the floating control
+    /// bars. Without this a dot could be dropped underneath a bar, and since
+    /// the bars swallow touches (`pointer-events: auto`) it could never be
+    /// grabbed again — only removed, and `-` takes the newest dot, not
+    /// necessarily that one. The bar rectangles are read from the DOM rather
+    /// than hard-coded so safe-area insets and the real pill sizes are honoured.
+    pub(crate) fn clamp_dot(&self, x: f64, y: f64) -> (f64, f64) {
+        let r = self.base_r();
+        // `.max(r)` keeps the upper bound above the lower one (`clamp` panics
+        // otherwise) on a viewport too small to hold a whole dot.
+        let x = x.clamp(r, (self.width - r).max(r));
+        let mut y = y.clamp(r, (self.height - r).max(r));
+
+        // Eject from either bar's rect, inflated by the dot's radius. The bars
+        // are wide and short, so pushing vertically is the natural way out: the
+        // mode bar is at the top so a dot goes below it, the stepper is at the
+        // bottom so a dot goes above it.
+        let cr = self.canvas.get_bounding_client_rect();
+        for (el, downward) in [(&self.ui, true), (&self.dots_el, false)] {
+            // A hidden bar is inert (`pointer-events: none`), so it is not a
+            // hazard and must not restrict where a dot can go.
+            if el.class_name().split_whitespace().any(|c| c == "hidden") {
+                continue;
+            }
+            let b = el.get_bounding_client_rect();
+            if b.width() <= 0.0 || b.height() <= 0.0 {
+                continue;
+            }
+            let (l, t) = (b.left() - cr.left() - r, b.top() - cr.top() - r);
+            let (rt, bt) = (b.right() - cr.left() + r, b.bottom() - cr.top() + r);
+            if x > l && x < rt && y > t && y < bt {
+                y = if downward { bt } else { t };
+            }
+        }
+        (x, y)
+    }
+
     /// The current spotlight-hole radius of the Pick One flood, mirroring the
     /// geometry in `draw_flood`. Used to hand the flood off to a cancel overlay
     /// at exactly its current size so a touch mid-exit doesn't make it jump.
