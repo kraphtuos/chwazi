@@ -111,6 +111,12 @@ pub(crate) struct App {
     /// never collide with real pointer ids (which the spec keeps non-negative),
     /// and a more-negative id means a more-recently-added dot.
     pub(crate) next_virt: i32,
+    /// Pointers currently dragging a staged virtual dot: real pointer id → the
+    /// virtual dot's id. A touch that lands on a dot grabs it instead of
+    /// spawning a finger, so a dot can be repositioned after it is added.
+    /// Crucially the grab adds no `Finger`, so `real_alive` stays put and
+    /// arranging dots can never itself start a countdown.
+    pub(crate) drags: HashMap<i32, i32>,
 
     pub(crate) now: f64,    // seconds, updated each frame
     pub(crate) last_t: f64, // seconds

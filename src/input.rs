@@ -32,6 +32,19 @@ impl App {
             }
             self.reset_idle();
         }
+        // A touch landing on a staged virtual dot grabs it to drag rather than
+        // starting a finger of its own, so dots can be arranged after they are
+        // added. Checked after the cancel above, so touching a dot while a
+        // result is up still clears the result first (and `reset_idle` leaves
+        // dot positions alone, so the hit test above still applies).
+        if let Some(vid) = self.dot_at(x, y) {
+            self.drags.insert(id, vid);
+            // Restart the countdown, as adding or removing a dot does: moving a
+            // participant is still arranging, and the round shouldn't fire from
+            // under the hand doing it.
+            self.phase = Phase::Gather { changed: self.now };
+            return;
+        }
         let color = self.pick_color();
         let base = self.base_r();
         self.fingers
@@ -89,6 +102,10 @@ impl App {
     /// across rounds.
     pub(crate) fn release_all_touches(&mut self) {
         self.fingers.retain(|_, f| f.virt);
+        // Any in-flight dot drag ends here too: its pointer is gone, so the
+        // entry would otherwise linger and re-attach to a recycled id. The dot
+        // itself stays staged where it was dropped.
+        self.drags.clear();
         // Drop the cancel overlay as well — with no frames running it would
         // otherwise still be mid-whoosh and flash on the way back in.
         self.cancel = None;
@@ -101,6 +118,18 @@ impl App {
         if !matches!(self.phase, Phase::Idle | Phase::Gather { .. }) {
             return;
         }
+        // A grabbed dot follows the pointer, kept clear of the control bars.
+        // Removing the dot with `-` mid-drag drops the entry (see
+        // `remove_virtual`), so this stops matching and the pointer goes inert
+        // for the rest of the gesture rather than towing a vanishing dot.
+        if let Some(&vid) = self.drags.get(&id) {
+            let (cx, cy) = self.clamp_dot(x, y);
+            if let Some(f) = self.fingers.get_mut(&vid) {
+                f.x = cx;
+                f.y = cy;
+            }
+            return;
+        }
         if let Some(f) = self.fingers.get_mut(&id) {
             f.x = x;
             f.y = y;
@@ -108,6 +137,13 @@ impl App {
     }
 
     fn on_up(&mut self, id: i32) {
+        // Releasing a dragged dot only ends the drag. The dot stays staged
+        // exactly where it was dropped, and since the grab never created a
+        // finger there is no round state to unwind.
+        if self.drags.remove(&id).is_some() {
+            return;
+        }
+
         // Order / Teams with a result on screen: the ring must stay put as the
         // finger lifts, so its rank/team number remains readable. The shrink-out
         // is played later, after the hold (see `frame`). Otherwise the object
@@ -231,6 +267,10 @@ impl App {
             f.depart = Some(self.now);
             f.depart_scale = f.scale;
         }
+        // If this dot was being dragged (a second touch can reach `-` while the
+        // first holds it), end that drag — otherwise it would keep towing the
+        // shrinking dot around by its corpse.
+        self.drags.retain(|_, v| *v != id);
         self.phase = if self.fingers.values().any(|f| f.alive) {
             Phase::Gather { changed: self.now }
         } else {
