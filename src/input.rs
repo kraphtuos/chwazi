@@ -6,7 +6,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlCanvasElement, HtmlElement, PointerEvent};
 
 use crate::config::*;
-use crate::state::{App, Finger, Mode, Phase};
+use crate::state::{App, Drag, Finger, Mode, Phase};
 use crate::util::{add_listener, document, inv_smoothstep, window, with_app};
 
 impl App {
@@ -38,10 +38,17 @@ impl App {
         // result is up still clears the result first (and `reset_idle` leaves
         // dot positions alone, so the hit test above still applies).
         if let Some(vid) = self.dot_at(x, y) {
-            self.drags.insert(id, vid);
+            self.drags.insert(
+                id,
+                Drag {
+                    dot: vid,
+                    anchor: (x, y),
+                },
+            );
             // Restart the countdown, as adding or removing a dot does: moving a
             // participant is still arranging, and the round shouldn't fire from
-            // under the hand doing it.
+            // under the hand doing it. `on_move` keeps restarting it for as
+            // long as the dot is really being moved.
             self.phase = Phase::Gather { changed: self.now };
             return;
         }
@@ -133,11 +140,21 @@ impl App {
         // Removing the dot with `-` mid-drag drops the entry (see
         // `remove_virtual`), so this stops matching and the pointer goes inert
         // for the rest of the gesture rather than towing a vanishing dot.
-        if let Some(&vid) = self.drags.get(&id) {
+        if let Some(drag) = self.drags.get(&id) {
+            let (vid, (ax, ay)) = (drag.dot, drag.anchor);
             let (cx, cy) = self.clamp_dot(x, y);
             if let Some(f) = self.fingers.get_mut(&vid) {
                 f.x = cx;
                 f.y = cy;
+            }
+            // A real move (beyond jitter) is still arranging, so it restarts
+            // the countdown; a finger merely resting on the dot lets it run,
+            // just like a held finger.
+            if (x - ax).hypot(y - ay) > DRAG_SLOP * self.base_r() {
+                if let Some(drag) = self.drags.get_mut(&id) {
+                    drag.anchor = (x, y);
+                }
+                self.phase = Phase::Gather { changed: self.now };
             }
             return;
         }
@@ -269,7 +286,7 @@ impl App {
         // If this dot was being dragged (a second touch can reach `-` while the
         // first holds it), end that drag — otherwise it would keep towing the
         // shrinking dot around by its corpse.
-        self.drags.retain(|_, v| *v != id);
+        self.drags.retain(|_, d| d.dot != id);
         self.regather();
         self.update_dcount();
     }
