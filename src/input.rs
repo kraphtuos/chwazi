@@ -25,7 +25,7 @@ impl App {
                 // back to the small spotlight and re-expanding. Back-date the
                 // overlay's start so its progress matches the flood right now.
                 let cover = self.width.hypot(self.height);
-                let spot_c = self.base_r() * 1.25 * HOLE_FRAC;
+                let spot_c = self.settled_spot_r();
                 let s_val = ((self.flood_hole() - spot_c) / (cover - spot_c)).clamp(0.0, 1.0);
                 let t0 = self.now - inv_smoothstep(s_val) * EXIT_FAST;
                 self.cancel = Some((t0, col, pos));

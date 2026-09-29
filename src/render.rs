@@ -88,7 +88,7 @@ impl App {
     fn draw_cancel(&self, t0: f64, col: Rgb, cx: f64, cy: f64) {
         let e = ((self.now - t0) / EXIT_FAST).clamp(0.0, 1.0);
         let cover = self.width.hypot(self.height);
-        let spot_r = self.base_r() * 1.25 * HOLE_FRAC;
+        let spot_r = self.settled_spot_r();
         let hole = spot_r + (cover - spot_r) * smoothstep(e);
         if hole >= cover {
             return;
@@ -294,39 +294,14 @@ impl App {
     /// finger to fill the screen (accelerating), then a clear round spotlight
     /// irises open around the winning ring. Holds, then fades, after lift.
     fn draw_flood(&self, wx: f64, wy: f64, col: Rgb) {
-        let base = self.base_r();
-        let cover = self.width.hypot(self.height);
         let seed = self.winner.unwrap_or(0) as f64;
-        let wr = base * (1.0 + 0.25 * self.reveal.clamp(0.0, 1.0));
-        let spot_r = wr * HOLE_FRAC;
-
-        // The whole thing is one clear "spotlight" circle punched out of a
-        // full-screen colour fill. As it shrinks from covering everything down
-        // to just the ring, the colour appears to flood IN from the edges. On
-        // release it opens back out to the edges and the colour recedes. A
-        // single smooth interpolation for both, so neither stutters.
-        let (hole, ws) = match self.phase {
-            Phase::Hold { start } => {
-                let t = self.now - start;
-                if t < HOLD_TIME {
-                    // Hold the full flood: winner sits visible and bobbing.
-                    (spot_r, 1.0)
-                } else {
-                    // Flood and winner recede together, one smooth curve. The
-                    // bob is damped by `scale` (see draw_ring), so this shrink
-                    // stays monotonic.
-                    let e = ((t - HOLD_TIME) / EXIT_ONE).clamp(0.0, 1.0);
-                    let k = smoothstep(e);
-                    (spot_r + (cover - spot_r) * k, 1.0 - k)
-                }
-            }
-            _ => {
-                // Flood in from the edges; ease-out so it starts sooner.
-                let r = self.reveal.clamp(0.0, 1.0);
-                let fp = 1.0 - (1.0 - r) * (1.0 - r);
-                (cover + (spot_r - cover) * fp, 1.0)
-            }
-        };
+        let wr = self.winner_r();
+        // The spotlight geometry lives in `flood_hole` (shared with the cancel
+        // hand-off). The winner shrinks out on the same curve as the flood
+        // recedes; its bob is damped by `scale` (see draw_ring), so the shrink
+        // stays monotonic.
+        let hole = self.flood_hole();
+        let ws = 1.0 - self.flood_exit();
 
         // Losing rings sit under the incoming colour and get swallowed edge-in.
         if !matches!(self.phase, Phase::Hold { .. }) {
