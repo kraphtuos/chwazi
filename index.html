@@ -10,7 +10,12 @@
         content="Chwazi-style random picker: put fingers on the screen and let it choose one, an order, or teams." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Opaque, NOT black-translucent: on iOS 26 a translucent-status-bar
+         home-screen app draws from the screen top but gets a window one status
+         bar short, leaving a dead strip at the bottom that nothing can paint
+         (WebKit bug 301108). iOS reads this only when the app is added to the
+         home screen, so an existing install must be removed and re-added. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="Chwazi" />
     <title>Chwazi &mdash; Finger Chooser</title>
 

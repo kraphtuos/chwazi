@@ -30,6 +30,12 @@
 // the canvas paints its own gradient and simply clips off-screen, whereas
 // under-covering leaves a strip that is visibly uncovered and, because pointer
 // listeners live on the canvas, dead to new touches.
+//
+// Not fixable here: the iOS 26 `black-translucent` bug (WebKit 301108), where a
+// home-screen app draws from the screen top but its window is one status bar
+// short. Every source above is then short too, and so is the window itself --
+// the strip below it can't be painted, however tall the canvas is made. That
+// is why index.html asks for the opaque `black` status bar instead.
 (function () {
     const c = document.getElementById('c');
     const STEADY = 2; // frames a new size must hold before it's applied
