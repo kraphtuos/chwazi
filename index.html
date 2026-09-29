@@ -22,11 +22,16 @@
     <link data-trunk rel="rust" data-wasm-opt="z" />
     <link data-trunk rel="copy-file" href="assets/manifest.json" />
     <link data-trunk rel="copy-file" href="assets/icon.svg" />
+    <link data-trunk rel="copy-file" href="assets/icon-192.png" />
+    <link data-trunk rel="copy-file" href="assets/icon-512.png" />
+    <link data-trunk rel="copy-file" href="assets/apple-touch-icon.png" />
     <link data-trunk rel="copy-file" href="assets/sw.js" />
 
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
-    <link rel="apple-touch-icon" href="icon.svg" />
+    <!-- iOS ignores SVG touch icons (it falls back to a screenshot), so this
+         is a PNG rendered from icon.svg. -->
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 
     <!-- Inlined at build (critical CSS, no extra request); source in styles.css. -->
     <link data-trunk rel="inline" href="styles.css" />

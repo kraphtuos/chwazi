@@ -75,6 +75,7 @@ js/               page bootstrap scripts (inlined into index.html at build)
   register-sw.js    registers sw.js in production, tears it down in dev
 assets/
   manifest.json   PWA manifest
-  icon.svg        app icon
+  icon.svg        app icon (source)
+  icon-*.png      PNG renders of icon.svg for the manifest + iOS home screen
   sw.js           offline service worker  (copied to dist root for SW scope)
 ```
