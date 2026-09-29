@@ -18,6 +18,9 @@ pub(crate) const RING_W: f64 = 0.16;
 /// Radius of the clear "spotlight" window kept around the winning ring while
 /// the rest of the screen floods, as a multiple of the base radius.
 pub(crate) const HOLE_FRAC: f64 = 1.85;
+/// How much the winning ring grows as the Pick One flood comes in, as a
+/// fraction of the base radius (it ends at `1 + WIN_GROW` × base).
+pub(crate) const WIN_GROW: f64 = 0.25;
 /// Rotation speed (rad/s) of the shaded wedge as it grows around each ring.
 pub(crate) const SPIN_SPEED: f64 = 4.5;
 /// Buffer after each add before the countdown may start. During it the newly

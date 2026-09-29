@@ -115,29 +115,57 @@ impl App {
         (x, y)
     }
 
-    /// The current spotlight-hole radius of the Pick One flood, mirroring the
-    /// geometry in `draw_flood`. Used to hand the flood off to a cancel overlay
-    /// at exactly its current size so a touch mid-exit doesn't make it jump.
-    pub(crate) fn flood_hole(&self) -> f64 {
-        let base = self.base_r();
-        let cover = self.width.hypot(self.height);
-        let wr = base * (1.0 + 0.25 * self.reveal.clamp(0.0, 1.0));
-        let spot_r = wr * HOLE_FRAC;
+    /// Radius of the Pick One winner's ring, which grows by `WIN_GROW` as the
+    /// flood comes in.
+    pub(crate) fn winner_r(&self) -> f64 {
+        self.base_r() * (1.0 + WIN_GROW * self.reveal.clamp(0.0, 1.0))
+    }
+
+    /// The spotlight radius once the reveal has fully played out — the hole a
+    /// receding flood (and the cancel overlay) opens out from.
+    pub(crate) fn settled_spot_r(&self) -> f64 {
+        self.base_r() * (1.0 + WIN_GROW) * HOLE_FRAC
+    }
+
+    /// Pick One exit progress, eased 0 → 1: zero until the post-lift hold has
+    /// elapsed, then the flood recedes and the winner dissolves along it.
+    pub(crate) fn flood_exit(&self) -> f64 {
         match self.phase {
-            Phase::Hold { start } => {
-                let t = self.now - start;
-                if t < HOLD_TIME {
-                    spot_r
-                } else {
-                    let e = ((t - HOLD_TIME) / EXIT_ONE).clamp(0.0, 1.0);
-                    spot_r + (cover - spot_r) * smoothstep(e)
-                }
-            }
+            Phase::Hold { start } => smoothstep((self.now - start - HOLD_TIME) / EXIT_ONE),
+            _ => 0.0,
+        }
+    }
+
+    /// The current spotlight-hole radius of the Pick One flood. Drawn by
+    /// `draw_flood`, and used to hand the flood off to a cancel overlay at
+    /// exactly its current size so a touch mid-exit doesn't make it jump.
+    ///
+    /// The flood is one clear "spotlight" circle punched out of a full-screen
+    /// colour fill. As it shrinks from covering everything down to just the
+    /// ring, the colour appears to flood IN from the edges. On release it opens
+    /// back out to the edges and the colour recedes. A single smooth
+    /// interpolation for both, so neither stutters.
+    pub(crate) fn flood_hole(&self) -> f64 {
+        let cover = self.width.hypot(self.height);
+        let spot_r = self.winner_r() * HOLE_FRAC;
+        match self.phase {
+            // Hold the spotlight while the winner sits visible, then recede.
+            Phase::Hold { .. } => spot_r + (cover - spot_r) * self.flood_exit(),
             _ => {
+                // Flood in from the edges; ease-out so it starts sooner.
                 let r = self.reveal.clamp(0.0, 1.0);
                 let fp = 1.0 - (1.0 - r) * (1.0 - r);
                 cover + (spot_r - cover) * fp
             }
+        }
+    }
+
+    /// Length of the selection animation for the current mode.
+    fn anim_dur(&self) -> f64 {
+        if self.mode == Mode::One {
+            ANIM_ONE
+        } else {
+            ANIM_OTHER
         }
     }
 
@@ -267,12 +295,7 @@ impl App {
                 }
             }
             Phase::Animate { start } => {
-                let dur = if self.mode == Mode::One {
-                    ANIM_ONE
-                } else {
-                    ANIM_OTHER
-                };
-                if now - start >= dur {
+                if now - start >= self.anim_dur() {
                     self.phase = Phase::Result;
                     self.reveal = 1.0;
                 }
@@ -337,12 +360,7 @@ impl App {
 
         // Progress of the flood expanding out from the winner (0..1).
         if let Phase::Animate { start } = phase {
-            let dur = if mode == Mode::One {
-                ANIM_ONE
-            } else {
-                ANIM_OTHER
-            };
-            self.reveal = ((now - start) / dur).clamp(0.0, 1.0);
+            self.reveal = ((now - start) / self.anim_dur()).clamp(0.0, 1.0);
         }
         let reveal = self.reveal;
 
