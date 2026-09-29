@@ -99,16 +99,23 @@ body {
     pointer-events: none;
 }
 
-.seg {
-    display: flex;
-    gap: 4px;
-    padding: 4px;
+/* Shared frosted "pill" look for the mode switch, the team stepper and the
+   dots stepper. */
+.seg,
+.grp,
+#dots {
     border-radius: 999px;
     background: rgba(255, 255, 255, .08);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(255, 255, 255, .1);
     pointer-events: auto;
+}
+
+.seg {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
 }
 
 .seg button {
@@ -129,84 +136,17 @@ body {
     color: #111;
 }
 
-.grp {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px 6px 16px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .08);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(255, 255, 255, .1);
-    font: 600 14px/1 system-ui, sans-serif;
-    color: rgba(255, 255, 255, .72);
-    pointer-events: auto;
-    transition: opacity .3s ease;
-}
-
-.grp.hidden {
-    display: none;
-}
-
-.grp button {
-    appearance: none;
-    border: 0;
-    cursor: pointer;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    font: 700 18px/1 system-ui, sans-serif;
-    color: #111;
-    background: #fff;
-}
-
-.grp button:active {
-    transform: scale(.92);
-}
-
-#gcount {
-    min-width: 14px;
-    text-align: center;
-    color: #fff;
-    font-size: 16px;
-}
-
-.grplabel {
-    opacity: .6;
-}
-
-/* The "extra dots" stepper: the iOS >5-touch workaround. Anchored at the
-   bottom centre so it's always in reach, it stays available right
-   through the gather countdown (unlike the mode bar) and only slides
-   away while a pick is on screen. Reuses the .grp pill look. */
+/* The two − count + steppers. */
+.grp,
 #dots {
-    position: fixed;
-    left: 50%;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
-    transform: translateX(-50%);
-    z-index: 10;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 8px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .08);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(255, 255, 255, .1);
     font: 600 14px/1 system-ui, sans-serif;
     color: rgba(255, 255, 255, .72);
-    pointer-events: auto;
-    transition: opacity .35s ease, transform .35s ease;
 }
 
-#dots.hidden {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(-50%) translateY(16px);
-}
-
+.grp button,
 #dots button {
     appearance: none;
     border: 0;
@@ -219,13 +159,46 @@ body {
     background: #fff;
 }
 
+.grp button:active,
 #dots button:active {
     transform: scale(.92);
 }
 
+#gcount,
 #dcount {
     min-width: 14px;
     text-align: center;
     color: #fff;
     font-size: 16px;
+}
+
+.grp {
+    padding: 6px 8px 6px 16px;
+}
+
+.grp.hidden {
+    display: none;
+}
+
+.grplabel {
+    opacity: .6;
+}
+
+/* The "extra dots" stepper: the iOS >5-touch workaround. Anchored at the
+   bottom centre so it's always in reach; it hides with the mode bar once a
+   real finger is down, and while a pick is on screen. */
+#dots {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 6px 8px;
+    transition: opacity .35s ease, transform .35s ease;
+}
+
+#dots.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(16px);
 }
