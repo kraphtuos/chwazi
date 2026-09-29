@@ -73,13 +73,24 @@ impl App {
         // With dots still staged the screen is really "waiting for fingers", so
         // stay in Gather (keeps their rings in the same light-track look as
         // during a gather, and the countdown stays gated on a real finger).
-        self.phase = if self.fingers.is_empty() {
-            Phase::Idle
-        } else {
-            Phase::Gather { changed: self.now }
-        };
+        self.regather();
         self.clear_result();
         self.update_dcount();
+    }
+
+    /// Settle into the pre-pick phase that matches who is on screen: a fresh
+    /// `Gather` countdown if any finger or dot is still pressed, else `Idle`.
+    ///
+    /// Keys off `alive`, not whether the map is empty: a just-lifted finger
+    /// stays in the map while it shrinks out, and landing in `Gather` because
+    /// of it would strand the screen there once it is removed — and `Idle` is
+    /// the only phase that draws the "place a finger" hint.
+    pub(crate) fn regather(&mut self) {
+        self.phase = if self.fingers.values().any(|f| f.alive) {
+            Phase::Gather { changed: self.now }
+        } else {
+            Phase::Idle
+        };
     }
 
     /// The page is going into the background. Drop every real touch and return
@@ -193,11 +204,7 @@ impl App {
                 // finish shrinking out. If dots are still staged, stay in Gather
                 // (not Idle): Idle draws rings in the solid saturated style, so
                 // the remaining dots would visibly shade over on the lift.
-                self.phase = if self.fingers.values().any(|f| f.alive) {
-                    Phase::Gather { changed: self.now }
-                } else {
-                    Phase::Idle
-                };
+                self.regather();
                 self.clear_result();
             }
         } else if matches!(self.phase, Phase::Idle | Phase::Gather { .. }) {
@@ -213,22 +220,14 @@ impl App {
             f.rank = 0;
             f.group = 0;
         }
-        self.phase = if self.fingers.is_empty() {
-            Phase::Idle
-        } else {
-            Phase::Gather { changed: self.now }
-        };
+        self.regather();
     }
 
     fn change_groups(&mut self, d: i32) {
         self.groups = (self.groups as i32 + d).clamp(2, 8) as usize;
         self.gcount_el.set_inner_text(&self.groups.to_string());
         self.clear_result();
-        self.phase = if self.fingers.is_empty() {
-            Phase::Idle
-        } else {
-            Phase::Gather { changed: self.now }
-        };
+        self.regather();
     }
 
     /// Add a virtual dot (the iOS >5-touch workaround). It behaves like a pressed
@@ -271,11 +270,7 @@ impl App {
         // first holds it), end that drag — otherwise it would keep towing the
         // shrinking dot around by its corpse.
         self.drags.retain(|_, v| *v != id);
-        self.phase = if self.fingers.values().any(|f| f.alive) {
-            Phase::Gather { changed: self.now }
-        } else {
-            Phase::Idle
-        };
+        self.regather();
         self.update_dcount();
     }
 }
