@@ -7,7 +7,7 @@ use web_sys::{Event, HtmlCanvasElement, HtmlElement, PointerEvent};
 
 use crate::config::*;
 use crate::state::{App, Drag, Finger, Mode, Phase};
-use crate::util::{add_listener, document, inv_smoothstep, window, with_app};
+use crate::util::{add_listener, document, element, inv_smoothstep, set_hidden, window, with_app};
 
 impl App {
     fn on_down(&mut self, id: i32, x: f64, y: f64) {
@@ -381,7 +381,8 @@ pub(crate) fn install_ui_handlers() -> Result<(), JsValue> {
     let doc = document();
     let buttons = doc.query_selector_all("#ui .seg button")?;
     for i in 0..buttons.length() {
-        let el = buttons.item(i).unwrap().dyn_into::<HtmlElement>()?;
+        let Some(el) = buttons.item(i) else { continue };
+        let el = el.dyn_into::<HtmlElement>()?;
         let mode = el.get_attribute("data-mode").unwrap_or_default();
         let clicked = el.clone();
         add_listener(&el, "click", move |_e: Event| {
@@ -395,35 +396,16 @@ pub(crate) fn install_ui_handlers() -> Result<(), JsValue> {
         });
     }
 
-    let gminus = doc
-        .get_element_by_id("gminus")
-        .unwrap()
-        .dyn_into::<HtmlElement>()?;
-    add_listener(&gminus, "click", move |_e: Event| {
+    add_listener(&element::<HtmlElement>("gminus")?, "click", |_e: Event| {
         with_app(|app| app.change_groups(-1));
     });
-
-    let gplus = doc
-        .get_element_by_id("gplus")
-        .unwrap()
-        .dyn_into::<HtmlElement>()?;
-    add_listener(&gplus, "click", move |_e: Event| {
+    add_listener(&element::<HtmlElement>("gplus")?, "click", |_e: Event| {
         with_app(|app| app.change_groups(1));
     });
-
-    let dminus = doc
-        .get_element_by_id("dminus")
-        .unwrap()
-        .dyn_into::<HtmlElement>()?;
-    add_listener(&dminus, "click", move |_e: Event| {
+    add_listener(&element::<HtmlElement>("dminus")?, "click", |_e: Event| {
         with_app(|app| app.remove_virtual());
     });
-
-    let dplus = doc
-        .get_element_by_id("dplus")
-        .unwrap()
-        .dyn_into::<HtmlElement>()?;
-    add_listener(&dplus, "click", move |_e: Event| {
+    add_listener(&element::<HtmlElement>("dplus")?, "click", |_e: Event| {
         with_app(|app| app.add_virtual());
     });
 
@@ -440,15 +422,8 @@ fn set_active_button(clicked: &HtmlElement, m: Mode) {
         }
     }
     clicked.set_class_name("active");
-    if let Some(g) = doc
-        .get_element_by_id("grp")
-        .and_then(|e| e.dyn_into::<HtmlElement>().ok())
-    {
-        g.set_class_name(if m == Mode::Groups {
-            "grp"
-        } else {
-            "grp hidden"
-        });
+    if let Ok(g) = element::<HtmlElement>("grp") {
+        set_hidden(&g, m != Mode::Groups);
     }
 }
 

@@ -19,6 +19,17 @@ pub(crate) fn document() -> Document {
     window().document().expect("no document")
 }
 
+/// The element with `id`, cast to `T`. A missing or mistyped element is an
+/// `Err` naming it rather than a panic, which under `panic = "abort"` would be
+/// an opaque `unreachable` trap.
+pub(crate) fn element<T: JsCast>(id: &str) -> Result<T, JsValue> {
+    document()
+        .get_element_by_id(id)
+        .ok_or_else(|| JsValue::from_str(&format!("missing #{id}")))?
+        .dyn_into::<T>()
+        .map_err(|_| JsValue::from_str(&format!("#{id} has the wrong element type")))
+}
+
 pub(crate) fn with_app<F: FnOnce(&mut crate::state::App)>(f: F) {
     APP.with(|a| {
         if let Some(app) = a.borrow_mut().as_mut() {
