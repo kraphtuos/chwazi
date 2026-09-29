@@ -71,7 +71,7 @@ impl App {
             _ => None,
         };
 
-        for id in self.fingers.keys().copied() {
+        for id in self.draw_order() {
             self.draw_finger(id, count);
         }
 
@@ -79,6 +79,20 @@ impl App {
         if let Some((t0, col, (cx, cy))) = self.cancel {
             self.draw_cancel(t0, col, cx, cy);
         }
+    }
+
+    /// Finger ids oldest-first, so the newest ring is always drawn on top. The
+    /// `HashMap`'s own order can reshuffle whenever it grows, which would make
+    /// overlapping rings swap stacking mid-round.
+    fn draw_order(&self) -> Vec<i32> {
+        let mut ids: Vec<i32> = self.fingers.keys().copied().collect();
+        ids.sort_by(|a, b| {
+            self.fingers[a]
+                .birth
+                .total_cmp(&self.fingers[b].birth)
+                .then(a.cmp(b))
+        });
+        ids
     }
 
     /// A cancelled result's flood, whooshing back out to the edges. Full-opacity
@@ -305,8 +319,9 @@ impl App {
 
         // Losing rings sit under the incoming colour and get swallowed edge-in.
         if !matches!(self.phase, Phase::Hold { .. }) {
-            for (id, f) in self.fingers.iter() {
-                if Some(*id) != self.winner {
+            for id in self.draw_order() {
+                if Some(id) != self.winner {
+                    let f = &self.fingers[&id];
                     self.draw_ring(RingSpec {
                         x: f.x,
                         y: f.y,
@@ -315,7 +330,7 @@ impl App {
                         alpha: f.alpha,
                         scale: f.scale,
                         ring_in: 1.0,
-                        seed: *id as f64,
+                        seed: id as f64,
                         mid: f.birth_angle,
                         arc: None,
                     });
