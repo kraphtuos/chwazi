@@ -8,6 +8,23 @@
 // back to the cache when offline.
 const CACHE = 'chwazi-v3';
 
+// Trunk content-hashes the JS glue and the WASM (e.g. chwazi-<hash>_bg.wasm),
+// so every deploy caches them under new URLs and the old ones would pile up
+// forever. Whenever a fresh page arrives, drop the hashed files it no longer
+// references.
+const HASHED = /-[0-9a-f]{8,}(_bg)?\.(js|wasm)$/;
+
+function prune(html) {
+    return caches.open(CACHE).then((c) =>
+        c.keys().then((reqs) => Promise.all(reqs
+            .filter((r) => {
+                const file = new URL(r.url).pathname.split('/').pop();
+                return HASHED.test(file) && !html.includes(file);
+            })
+            .map((r) => c.delete(r))))
+    );
+}
+
 self.addEventListener('install', (e) => {
     self.skipWaiting();
     e.waitUntil(
@@ -28,9 +45,18 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
         fetch(e.request)
             .then((res) => {
-                // Refresh the cache copy for offline use.
-                const copy = res.clone();
-                caches.open(CACHE).then((c) => c.put(e.request, copy).catch(() => { }));
+                // Refresh the cache copy for offline use — but only with a good
+                // response, so a 404 / 5xx never overwrites a working copy.
+                if (res.ok) {
+                    const copy = res.clone();
+                    const page = e.request.mode === 'navigate' ? res.clone() : null;
+                    e.waitUntil(
+                        caches.open(CACHE)
+                            .then((c) => c.put(e.request, copy))
+                            .then(() => page && page.text().then(prune))
+                            .catch(() => { })
+                    );
+                }
                 return res;
             })
             .catch(() =>
