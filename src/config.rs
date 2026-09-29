@@ -34,6 +34,11 @@ pub(crate) const EXIT_FAST: f64 = 0.32;
 /// timestamp (not per-frame integration) so it stays smooth even when frames
 /// are dropped during the busy lift transition.
 pub(crate) const SHRINK_TIME: f64 = 0.38;
+/// Dead zone for a held virtual dot, as a fraction of the base radius. A
+/// finger resting on a dot jitters a few px; only a move beyond this counts as
+/// a deliberate drag and restarts the countdown, so a still press behaves like
+/// a held finger and lets the pick fire.
+pub(crate) const DRAG_SLOP: f64 = 0.3;
 
 /// A single bob drives each finger's disc and ring together, forever. Fingers
 /// are desynced from one another by a per-id phase. (amplitude, rad·s⁻¹)
