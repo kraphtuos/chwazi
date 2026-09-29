@@ -44,9 +44,13 @@ jobs:
       # Trunk drives the build; it auto-downloads the matching wasm-bindgen and
       # wasm-opt (binaryen) itself, so nothing else needs installing.
       # Pinned so a surprise Trunk release can't break deploys; matches the
-      # version used for local development.
+      # version used for local development. The installer action is pinned to
+      # a commit SHA (and the binstall binary to the same release), since it
+      # runs arbitrary code in a job that feeds the production deploy.
       - name: Install Trunk
-        uses: cargo-bins/cargo-binstall@main
+        uses: cargo-bins/cargo-binstall@422f3094be6a0843857aa008b499caaf6bce0da8 # v1.24.0
+        with:
+          version: 1.24.0
       # --force reinstalls even when rust-cache restores cargo's install
       # metadata (.crates.toml) claiming trunk is already present: without it
       # binstall skips the install ("already installed") while the actual
