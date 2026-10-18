@@ -70,10 +70,15 @@ where
     cb.forget();
 }
 
+/// Whether an element carries the `hidden` class toggled by `set_hidden`.
+pub(crate) fn is_hidden(el: &HtmlElement) -> bool {
+    el.class_name().split_whitespace().any(|c| c == "hidden")
+}
+
 /// Toggle a `hidden` class on an element without disturbing its other classes.
 pub(crate) fn set_hidden(el: &HtmlElement, hidden: bool) {
     let cls = el.class_name();
-    let has = cls.split_whitespace().any(|c| c == "hidden");
+    let has = is_hidden(el);
     if hidden && !has {
         el.set_class_name(&format!("{cls} hidden"));
     } else if !hidden && has {

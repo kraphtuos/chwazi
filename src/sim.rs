@@ -2,7 +2,7 @@
 
 use crate::config::*;
 use crate::state::{App, Mode, Phase};
-use crate::util::{rnd, rnd_idx, set_hidden, shuffle, smoothstep, window};
+use crate::util::{is_hidden, rnd, rnd_idx, set_hidden, shuffle, smoothstep, window};
 
 impl App {
     pub(crate) fn base_r(&self) -> f64 {
@@ -107,7 +107,7 @@ impl App {
         for (el, downward) in [(&self.ui, true), (&self.dots_el, false)] {
             // A hidden bar is inert (`pointer-events: none`), so it is not a
             // hazard and must not restrict where a dot can go.
-            if el.class_name().split_whitespace().any(|c| c == "hidden") {
+            if is_hidden(el) {
                 continue;
             }
             let b = el.get_bounding_client_rect();
@@ -454,7 +454,7 @@ impl App {
         // pill lost its release and stuck — and on iOS a `+` tap with five
         // fingers already down is a sixth simultaneous touch the OS will not
         // deliver anyway, so little is given up.
-        let real_down = self.fingers.values().any(|f| f.alive && !f.virt);
+        let real_down = self.real_alive() > 0;
         set_hidden(&self.ui, busy || real_down);
         set_hidden(&self.dots_el, busy || real_down);
     }

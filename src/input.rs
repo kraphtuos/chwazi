@@ -68,7 +68,6 @@ impl App {
         let base = self.base_r();
         self.fingers.retain(|_, f| f.alive);
         for f in self.fingers.values_mut() {
-            f.alive = true;
             f.depart = None;
             f.depart_scale = 1.0;
             f.scale = 1.0;
