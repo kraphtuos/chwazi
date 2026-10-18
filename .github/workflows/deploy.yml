@@ -24,15 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Third-party actions are pinned to a commit SHA, as they run arbitrary
+      # code in a job that feeds the production deploy (see Install Trunk).
       - name: Install Rust (wasm target)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           targets: wasm32-unknown-unknown
           # dtolnay's default profile is minimal; pull in the lint/format tools.
           components: clippy, rustfmt
 
       # Cache the cargo registry + build so only the first run pays full build.
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       # Fail fast on formatting or lint problems before spending time on the
       # wasm build + deploy. `-D warnings` makes any clippy warning an error.
