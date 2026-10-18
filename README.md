@@ -66,6 +66,7 @@ for PWA installability.
 
 ```
 Cargo.toml        crate config (cdylib) + web-sys features
+build.rs          stamps the build time for the dev-only on-screen build stamp
 index.html        Trunk template: canvas + control bar markup, asset links
 styles.css        all UI styling — incl. the full-screen canvas (inlined at build)
 src/
