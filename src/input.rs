@@ -240,8 +240,11 @@ impl App {
         self.regather();
     }
 
-    fn change_groups(&mut self, d: i32) {
-        self.groups = (self.groups as i32 + d).clamp(2, 8) as usize;
+    fn change_groups(&mut self, d: isize) {
+        self.groups = self
+            .groups
+            .saturating_add_signed(d)
+            .clamp(MIN_GROUPS, MAX_GROUPS);
         self.gcount_el.set_inner_text(&self.groups.to_string());
         self.clear_result();
         self.regather();
@@ -251,7 +254,7 @@ impl App {
     /// finger from here on, participating in every pick until removed.
     fn add_virtual(&mut self) {
         // Cap so colours stay distinct and the screen doesn't fill with dots.
-        if self.virt_count() >= 8 {
+        if self.virt_count() >= MAX_DOTS {
             return;
         }
         let (x, y) = self.free_spot();

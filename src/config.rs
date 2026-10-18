@@ -70,6 +70,16 @@ pub(crate) const FINGER_COLORS: &[Rgb] = &[
     (170, 120, 90), // brown
 ];
 
+/// Most virtual dots that can be staged at once. With iOS's 5 real touches on
+/// top this stays under `FINGER_COLORS.len()`, so every participant keeps a
+/// colour of their own.
+pub(crate) const MAX_DOTS: usize = 8;
+
+/// Team-count bounds for "groups" mode. The upper bound is the palette size,
+/// so no two teams ever share a colour.
+pub(crate) const MIN_GROUPS: usize = 2;
+pub(crate) const MAX_GROUPS: usize = GROUP_COLORS.len();
+
 /// Colours used to tint each team in "groups" mode.
 pub(crate) const GROUP_COLORS: &[Rgb] = &[
     (255, 69, 58),

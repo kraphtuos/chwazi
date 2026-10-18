@@ -27,6 +27,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement};
 
+use crate::config::MIN_GROUPS;
 use crate::input::{install_pointer_handlers, install_ui_handlers, install_window_handlers};
 use crate::state::{App, Mode, Phase, APP};
 use crate::util::{element, start_raf};
@@ -53,7 +54,7 @@ pub fn start() -> Result<(), JsValue> {
         fingers: HashMap::new(),
         phase: Phase::Idle,
         mode: Mode::One,
-        groups: 2,
+        groups: MIN_GROUPS,
         next_virt: -1,
         drags: HashMap::new(),
         now: 0.0,
