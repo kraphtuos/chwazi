@@ -27,6 +27,14 @@ impl App {
         self.fingers.values().filter(|f| f.alive && f.virt).count()
     }
 
+    /// Whether the countdown may run: at least two participants, and at least
+    /// one of them a real finger — staged virtual dots on their own must not run
+    /// a pick (nobody is there to see or start it). Shared by the trigger in
+    /// `frame` and the wedge in `draw`, so the arc can never fill without firing.
+    pub(crate) fn countdown_armed(&self) -> bool {
+        self.active_count() >= 2 && self.real_alive() >= 1
+    }
+
     pub(crate) fn update_dcount(&self) {
         self.dcount_el
             .set_inner_text(&self.virt_count().to_string());
@@ -284,13 +292,8 @@ impl App {
         match self.phase {
             Phase::Gather { changed } => {
                 // The ring build-in buffer must elapse before the countdown, so
-                // the effective wait is `RING_BUILD + SELECT_DELAY`. At least one
-                // real finger must be down: staged virtual dots on their own must
-                // not run a pick (nobody is there to see or start it).
-                if self.active_count() >= 2
-                    && self.real_alive() >= 1
-                    && now - changed >= RING_BUILD + SELECT_DELAY
-                {
+                // the effective wait is `RING_BUILD + SELECT_DELAY`.
+                if self.countdown_armed() && now - changed >= RING_BUILD + SELECT_DELAY {
                     self.begin_selection(now);
                 }
             }

@@ -61,7 +61,7 @@ impl App {
             Phase::Gather { changed } => {
                 // The wedge stays empty through the ring build-in buffer, then
                 // sweeps to full over `SELECT_DELAY`.
-                let cd = if self.active_count() >= 2 && self.real_alive() >= 1 {
+                let cd = if self.countdown_armed() {
                     ((self.now - changed - RING_BUILD) / SELECT_DELAY).clamp(0.0, 1.0)
                 } else {
                     0.0
