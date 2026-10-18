@@ -13,8 +13,11 @@
         </radialGradient>
     </defs>
 
-    <!-- Full-bleed black keeps the icon clean when a launcher masks it. -->
-    <rect width="512" height="512" fill="#000000" />
+    <!-- Rounded tile (~22% corner radius, close to the iOS / macOS app shape)
+         with transparent corners. This is the "any"-purpose icon, shown as-is
+         by browsers and desktop launchers, so it carries its own shape. Launchers
+         that cut their own shape get the full-bleed icon-maskable.svg instead. -->
+    <rect width="512" height="512" rx="112" fill="#000000" />
 
     <!-- 2x2 grid: one yellow dot, three teal dots. -->
     <circle cx="172" cy="172" r="62" fill="url(#yellow)" />
