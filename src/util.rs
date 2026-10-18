@@ -123,3 +123,37 @@ pub(crate) fn lerp_col(a: Rgb, b: Rgb, t: f64) -> Rgb {
     let l = |x: u8, y: u8| (x as f64 + (y as f64 - x as f64) * t) as u8;
     (l(a.0, b.0), l(a.1, b.1), l(a.2, b.2))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn smoothstep_hits_endpoints_and_clamps() {
+        assert_eq!(smoothstep(0.0), 0.0);
+        assert_eq!(smoothstep(0.5), 0.5);
+        assert_eq!(smoothstep(1.0), 1.0);
+        assert_eq!(smoothstep(-1.0), 0.0);
+        assert_eq!(smoothstep(2.0), 1.0);
+    }
+
+    /// The cancel overlay back-dates its start with `inv_smoothstep` so it
+    /// resumes exactly where the flood is; any error here shows as a jump.
+    #[test]
+    fn inv_smoothstep_inverts_smoothstep() {
+        for i in 0..=1000 {
+            let t = i as f64 / 1000.0;
+            let back = inv_smoothstep(smoothstep(t));
+            assert!((back - t).abs() < 1e-9, "t={t} came back as {back}");
+        }
+        assert!(inv_smoothstep(-0.5).abs() < 1e-12);
+        assert!((inv_smoothstep(1.5) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn lerp_col_endpoints() {
+        let (a, b) = ((0, 100, 255), (255, 0, 55));
+        assert_eq!(lerp_col(a, b, 0.0), a);
+        assert_eq!(lerp_col(a, b, 1.0), b);
+    }
+}

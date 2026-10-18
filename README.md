@@ -49,6 +49,13 @@ trunk serve --release
 # open http://localhost:8080
 ```
 
+The unit tests cover pure maths only, so they run natively rather than in a
+browser (the crate otherwise defaults to the wasm target):
+
+```sh
+cargo test --target x86_64-unknown-linux-gnu   # or your host triple
+```
+
 ## Deploy
 
 Upload the `dist/` directory to any static host — GitHub Pages, Netlify, S3,
