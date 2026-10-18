@@ -421,10 +421,12 @@ fn set_active_button(clicked: &HtmlElement, m: Mode) {
         for i in 0..list.length() {
             if let Some(el) = list.item(i).and_then(|n| n.dyn_into::<HtmlElement>().ok()) {
                 el.set_class_name("");
+                let _ = el.set_attribute("aria-pressed", "false");
             }
         }
     }
     clicked.set_class_name("active");
+    let _ = clicked.set_attribute("aria-pressed", "true");
     if let Ok(g) = element::<HtmlElement>("grp") {
         set_hidden(&g, m != Mode::Groups);
     }

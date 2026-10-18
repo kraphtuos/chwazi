@@ -45,22 +45,22 @@
     <canvas id="c"></canvas>
 
     <div id="ui">
-        <div class="seg">
-            <button data-mode="one" class="active">Pick&nbsp;One</button>
-            <button data-mode="order">Order</button>
-            <button data-mode="groups">Teams</button>
+        <div class="seg" role="group" aria-label="mode">
+            <button data-mode="one" class="active" aria-pressed="true">Pick&nbsp;One</button>
+            <button data-mode="order" aria-pressed="false">Order</button>
+            <button data-mode="groups" aria-pressed="false">Teams</button>
         </div>
-        <div id="grp" class="grp hidden">
+        <div id="grp" class="grp hidden" role="group" aria-label="number of teams">
             <button id="gminus" aria-label="fewer teams">&minus;</button>
-            <span id="gcount">2</span>
+            <span id="gcount" aria-live="polite">2</span>
             <button id="gplus" aria-label="more teams">+</button>
             <span class="grplabel">teams</span>
         </div>
     </div>
 
-    <div id="dots">
+    <div id="dots" role="group" aria-label="extra dots">
         <button id="dminus" aria-label="remove a dot">&minus;</button>
-        <span id="dcount">0</span>
+        <span id="dcount" aria-live="polite">0</span>
         <button id="dplus" aria-label="add a dot">+</button>
     </div>
 
