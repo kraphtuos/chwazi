@@ -59,9 +59,13 @@ self.addEventListener('fetch', (e) => {
                 }
                 return res;
             })
-            .catch(() =>
-                // Offline: serve whatever we cached, falling back to the shell.
-                caches.match(e.request).then((hit) => hit || caches.match('./index.html'))
-            )
+            .catch(async () => {
+                // Offline: serve whatever we cached. Only a page navigation falls
+                // back to the shell — handing index.html to a .wasm or .js
+                // request would just fail later with a confusing MIME/parse error.
+                const hit = await caches.match(e.request)
+                    || (e.request.mode === 'navigate' && await caches.match('./index.html'));
+                return hit || Response.error();
+            })
     );
 });
